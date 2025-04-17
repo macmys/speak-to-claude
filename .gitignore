@@ -1,0 +1,37 @@
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary browser files
+*.tmp
+*.bak
+*.swp
+
+# Personal notes and drafts
+notes.md
+draft.html
+TODO.md
+
+# Audio test files
+*.wav
+*.mp3
+*.webm
+*.ogg
+
+# Credentials or sensitive information
+*credentials*
+*api-key*
+
+# Personal configuration files
+speak-to-claude.html
+voice_transcript.json
+
+# Personal configuration directory
+my-config/
