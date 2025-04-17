@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription Assistant</title>
+    <style>
+        :root {
+            --primary-color: #4154B3;
+            --primary-dark: #3344a0;
+            --secondary-color: #e67e22;
+            --text-color: #333;
+            --light-bg: #f5f5f5;
+            --white: #ffffff;
+            --border-radius: 8px;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--light-bg);
+            color: var(--text-color);
+        }
+        
+        .container, .history-container {
+            background-color: var(--white);
+            padding: 24px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-top: 0;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        
+        h2 {
+            font-size: 22px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: var(--transition);
+            color: var(--white);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #recordButton {
+            background-color: var(--primary-color);
+            width: 180px;
+        }
+        
+        #recordButton:hover:not(:disabled) {
+            background-color: var(--primary-dark);
+        }
+        
+        #recordButton.recording {
+            background-color: #c0392b;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        #copyButton {
+            background-color: var(--secondary-color);
+            width: 180px;
+        }
+        
+        #copyButton:hover:not(:disabled) {
+            background-color: #d35400;
+        }
+        
+        .result-container {
+            margin-top: 24px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            min-height: 100px;
+            background-color: var(--light-bg);
+            position: relative;
+        }
+        
+        #status {
+            text-align: center;
+            margin: 16px 0;
+            font-style: italic;
+            color: #666;
+        }
+        
+        .timer {
+            text-align: center;
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        
+        .tips {
+            margin-top: 24px;
+            padding: 16px;
+            background-color: #f0f4ff;
+            border-radius: var(--border-radius);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .tips h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+        
+        .history-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #eee;
+            border-radius: var(--border-radius);
+            background-color: var(--light-bg);
+            position: relative;
+            transition: var(--transition);
+        }
+        
+        .history-item:hover {
+            background-color: #f0f4ff;
+        }
+        
+        .history-content {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-right: 80px; /* Space for button */
+            align-items: center;
+        }
+        
+        .timestamp {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .file-size {
+            color: var(--secondary-color);
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .history-text {
+            margin: 0;
+            max-height: 60px;
+            overflow-y: auto;
+            line-height: 1.4;
+            padding-right: 80px; /* Space for button */
+        }
+        
+        .history-copy-btn {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .history-copy-btn:hover {
+            background-color: #d35400;
+        }
+        
+        .no-history {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        
+        .processing-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .processing-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            background-color: var(--white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        
+        .processing-status {
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .spinner-icon {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2ecc71;
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--border-radius);
+            display: none;
+            box-shadow: var(--shadow);
+            z-index: 1001;
+        }
+
+        .keyboard-shortcuts {
+            margin-top: 16px;
+            background-color: #fef9e7;
+            border-radius: var(--border-radius);
+            border-left: 4px solid #f39c12;
+            padding: 16px;
+        }
+        
+        .keyboard-shortcuts h3 {
+            margin-top: 0;
+            color: #f39c12;
+        }
+        
+        .shortcut-key {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 0 4px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .shortcut-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .shortcut-list li {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .shortcut-description {
+            margin-left: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Audio Transcription Assistant</h1>
+        
+        <div class="timer" id="timer">00:00</div>
+        
+        <div class="controls">
+            <button id="recordButton">Start Recording</button>
+            <button id="copyButton" disabled>Copy Transcription</button>
+        </div>
+        
+        <div id="status">Ready to record</div>
+        
+        <div class="result-container">
+            <p id="transcription">Your transcription will appear here...</p>
+        </div>
+        
+        <div class="keyboard-shortcuts">
+            <h3>Keyboard Shortcuts</h3>
+            <ul class="shortcut-list">
+                <li>
+                    <span class="shortcut-key">R</span>
+                    <span class="shortcut-description">Start/Stop Recording</span>
+                </li>
+                <li>
+                    <span class="shortcut-key">C</span>
+                    <span class="shortcut-description">Copy Transcription</span>
+                </li>
+                <li>
+                    <span class="shortcut-key">Esc</span>
+                    <span class="shortcut-description">Cancel Recording</span>
+                </li>
+                <li>
+                    <span class="shortcut-key">1-5</span>
+                    <span class="shortcut-description">Load Previous Transcription (1=most recent)</span>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="tips">
+            <h3>Tips</h3>
+            <ul>
+                <li>Always select "Remember" in the browser permission dialog to avoid seeing it every time.</li>
+                <li>Click "Copy Transcription" after recording to get the text into your clipboard.</li>
+                <li>Speak clearly and at a moderate pace for best transcription results.</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="history-container">
+        <h2>Transcription History</h2>
+        <div class="history-list" id="history-list">
+            <div class="no-history">No history yet. Your transcriptions will appear here.</div>
+        </div>
+    </div>
+    
+    <div class="processing-overlay" id="processingOverlay">
+        <div class="processing-content">
+            <div class="spinner-icon"></div>
+            <div class="processing-status" id="processingStatus">Processing audio...</div>
+        </div>
+    </div>
+    
+    <div class="copy-toast" id="copyToast">Copied to clipboard!</div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let isProcessing = false;
+        let timerInterval;
+        let startTime;
+        let stream;
+        const recordButton = document.getElementById('recordButton');
+        const copyButton = document.getElementById('copyButton');
+        const status = document.getElementById('status');
+        const transcription = document.getElementById('transcription');
+        const timer = document.getElementById('timer');
+        const historyList = document.getElementById('history-list');
+        const processingOverlay = document.getElementById('processingOverlay');
+        const copyToast = document.getElementById('copyToast');
+        
+        // Load history from localStorage
+        let transcriptionHistory = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+        
+        // N8N webhook URL
+        const n8nWebhookUrl = 'https://tytan.polon.ai/webhook/audio-transcription';
+        
+        // Initialize history on page load
+        renderHistory();
+        
+        // Format file size for display
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Get microphone access when recording starts
+        async function getAudioStream() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+                return true;
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                status.textContent = "Error: Microphone access denied";
+                return false;
+            }
+        }
+        
+        // Setup recorder with the audio stream
+        function setupRecorder(stream) {
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm'
+            });
+            
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                
+                // Get file size
+                const fileSizeBytes = audioBlob.size;
+                const fileSizeFormatted = formatFileSize(fileSizeBytes);
+                
+                // Set processing state with file size
+                setProcessingState(true, `Processing ${fileSizeFormatted} audio file...`);
+                
+                await sendToN8N(audioBlob);
+                
+                // Release the microphone
+                stream.getTracks().forEach(track => track.stop());
+                
+                // End processing state
+                setProcessingState(false);
+            };
+        }
+        
+        // Control processing state
+        function setProcessingState(processing, message) {
+            isProcessing = processing;
+            recordButton.disabled = processing;
+            processingOverlay.style.display = processing ? 'flex' : 'none';
+            
+            // Update the processing status message if provided
+            if (processing && message) {
+                document.getElementById('processingStatus').textContent = message;
+            }
+            
+            status.textContent = processing ? (message || "Processing audio...") : "Ready to record";
+        }
+        
+        // Start/stop recording
+        async function toggleRecording() {
+            if (isProcessing) return;
+            
+            if (!isRecording) {
+                // Request microphone access when starting recording
+                const gotAccess = await getAudioStream();
+                if (!gotAccess) return;
+                
+                // Setup recorder with the stream
+                setupRecorder(stream);
+                
+                // Start recording
+                audioChunks = [];
+                mediaRecorder.start();
+                isRecording = true;
+                recordButton.textContent = "Stop Recording";
+                recordButton.classList.add('recording');
+                status.textContent = "Recording...";
+                startTimer();
+            } else {
+                // Stop recording
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+                isRecording = false;
+                recordButton.textContent = "Start Recording";
+                recordButton.classList.remove('recording');
+                stopTimer(); // This should stop the timer
+            }
+        }
+        
+        // Cancel recording without processing
+        function cancelRecording() {
+            if (!isRecording) return;
+            
+            // Stop the recording but don't process it
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                // We'll clear the chunks to prevent processing
+                audioChunks = [];
+            }
+            
+            isRecording = false;
+            recordButton.textContent = "Start Recording";
+            recordButton.classList.remove('recording');
+            stopTimer();
+            
+            // Release microphone
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            status.textContent = "Recording canceled";
+            setTimeout(() => {
+                status.textContent = "Ready to record";
+            }, 2000);
+        }
+        
+        // Send audio to n8n webhook
+        async function sendToN8N(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+            
+            // Get file size
+            const fileSizeBytes = audioBlob.size;
+            const fileSizeFormatted = formatFileSize(fileSizeBytes);
+            
+            try {
+                // Update status with file size
+                status.textContent = `Sending ${fileSizeFormatted} recording for transcription...`;
+                document.getElementById('processingStatus').textContent = `Sending ${fileSizeFormatted} recording for transcription...`;
+                
+                const response = await fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                // Update status while processing
+                status.textContent = `Processing ${fileSizeFormatted} recording...`;
+                document.getElementById('processingStatus').textContent = `Processing ${fileSizeFormatted} recording...`;
+                
+                const data = await response.json();
+                
+                // Flexible response handling
+                let transcriptionText = "";
+                if (data && data.transcription) {
+                    transcriptionText = data.transcription;
+                } else if (data && data.text) {
+                    transcriptionText = data.text;
+                } else if (typeof data === 'string') {
+                    transcriptionText = data;
+                } else if (data && data.success === true && data.result && data.result.transcription) {
+                    transcriptionText = data.result.transcription;
+                } else {
+                    console.log("Could not find transcription in response:", data);
+                    throw new Error('Could not locate transcription in response');
+                }
+                
+                displayTranscription(transcriptionText);
+                addToHistory(transcriptionText, fileSizeBytes);
+                status.textContent = "Transcription complete - Click 'Copy Transcription'";
+                copyButton.focus();
+            } catch (error) {
+                console.error('Error sending to n8n:', error);
+                status.textContent = "Error: Failed to process audio";
+                transcription.textContent = "Error: Could not get transcription. Please try again.";
+            }
+        }
+        
+        // Display transcription result
+        function displayTranscription(text) {
+            transcription.textContent = text;
+            copyButton.disabled = false;
+        }
+        
+        // Copy transcription to clipboard
+        async function copyToClipboard(text) {
+            const textToCopy = text || transcription.textContent;
+            
+            if (textToCopy === "Your transcription will appear here..." || 
+                textToCopy === "Error: Could not get transcription. Please try again.") {
+                status.textContent = "Nothing to copy yet";
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                
+                // Show toast notification
+                copyToast.style.display = 'block';
+                setTimeout(() => {
+                    copyToast.style.display = 'none';
+                }, 2000);
+                
+                // Update status
+                status.textContent = "Copied to clipboard! Ready for Claude.";
+                
+                // Visual feedback for main copy button
+                if (!text) { // Only if it's the main button
+                    copyButton.textContent = "✓ Copied!";
+                    setTimeout(() => {
+                        copyButton.textContent = "Copy Transcription";
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                
+                // Fallback method if the clipboard API fails
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                status.textContent = "Copied using fallback method!";
+            }
+        }
+        
+        // Add transcription to history
+        function addToHistory(text, fileSizeBytes) {
+            const now = new Date();
+            const timestamp = now.toLocaleString();
+            const fileSizeFormatted = formatFileSize(fileSizeBytes);
+            
+            // Create history item
+            const historyItem = {
+                text: text,
+                timestamp: timestamp,
+                date: now.toISOString(),
+                fileSize: fileSizeBytes,
+                fileSizeFormatted: fileSizeFormatted
+            };
+            
+            // Add to history array
+            transcriptionHistory.unshift(historyItem);
+            
+            // Limit history to 50 items
+            if (transcriptionHistory.length > 50) {
+                transcriptionHistory.pop();
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('transcriptionHistory', JSON.stringify(transcriptionHistory));
+            
+            // Update history display
+            renderHistory();
+        }
+        
+        // Render history items
+        function renderHistory() {
+            if (transcriptionHistory.length === 0) {
+                historyList.innerHTML = '<div class="no-history">No history yet. Your transcriptions will appear here.</div>';
+                return;
+            }
+            
+            historyList.innerHTML = '';
+            
+            transcriptionHistory.forEach((item, index) => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.dataset.index = index;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'history-content';
+                
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'history-header';
+                
+                const timestampSpan = document.createElement('span');
+                timestampSpan.className = 'timestamp';
+                timestampSpan.textContent = item.timestamp;
+                
+                const fileSizeSpan = document.createElement('span');
+                fileSizeSpan.className = 'file-size';
+                fileSizeSpan.textContent = item.fileSizeFormatted || '';
+                
+                headerDiv.appendChild(timestampSpan);
+                headerDiv.appendChild(fileSizeSpan);
+                
+                const textP = document.createElement('p');
+                textP.className = 'history-text';
+                textP.textContent = item.text;
+                
+                contentDiv.appendChild(headerDiv);
+                contentDiv.appendChild(textP);
+                
+                const copyButton = document.createElement('button');
+                copyButton.className = 'history-copy-btn';
+                copyButton.textContent = 'Copy';
+                copyButton.onclick = (e) => {
+                    e.stopPropagation();
+                    copyToClipboard(item.text);
+                };
+                
+                historyItem.appendChild(contentDiv);
+                historyItem.appendChild(copyButton);
+                
+                // Make the item clickable to load into main area
+                historyItem.onclick = (e) => {
+                    // Avoid triggering when clicking the copy button
+                    if (e.target === copyButton) return;
+                    
+                    displayTranscription(item.text);
+                    document.documentElement.scrollTop = 0;
+                    copyButton.focus();
+                };
+                
+                historyList.appendChild(historyItem);
+            });
+        }
+        
+        // Timer functions
+        function startTimer() {
+            startTime = Date.now();
+            timer.textContent = '00:00';
+            
+            // Clear any existing timer interval first to avoid duplicates
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            timerInterval = setInterval(() => {
+                const elapsedTime = Date.now() - startTime;
+                const minutes = Math.floor(elapsedTime / 60000);
+                const seconds = Math.floor((elapsedTime % 60000) / 1000);
+                
+                timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        // Load a specific history item by index
+        function loadHistoryItem(index) {
+            if (transcriptionHistory.length > index) {
+                const item = transcriptionHistory[index];
+                displayTranscription(item.text);
+                document.documentElement.scrollTop = 0;
+                copyButton.focus();
+                
+                // Visual feedback
+                status.textContent = `Loaded transcription from ${item.timestamp}`;
+            }
+        }
+        
+        // Set up keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Skip if we're in an input field or textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            // 'R' key to start/stop recording
+            if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                toggleRecording();
+            }
+            
+            // 'C' key to copy transcription
+            if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                copyToClipboard();
+            }
+            
+            // 'Escape' key to cancel recording
+            if (e.key === 'Escape' && isRecording) {
+                e.preventDefault();
+                cancelRecording();
+            }
+            
+            // Number keys 1-5 to load recent transcriptions
+            const keyNum = parseInt(e.key);
+            if (keyNum >= 1 && keyNum <= 5 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                loadHistoryItem(keyNum - 1); // Convert to 0-based index
+            }
+        });
+        
+        // Set up event listeners
+        recordButton.addEventListener('click', toggleRecording);
+        copyButton.addEventListener('click', () => copyToClipboard());
+        
+        // Check for permissions on page load
+        async function checkInitialPermissions() {
+            try {
+                const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                if (permissionStatus.state === 'granted') {
+                    status.textContent = "Microphone access already granted!";
+                } else if (permissionStatus.state === 'prompt') {
+                    status.textContent = "Ready to record (will ask for microphone access)";
+                } else if (permissionStatus.state === 'denied') {
+                    status.textContent = "Microphone access denied. Please enable in browser settings.";
+                    recordButton.disabled = true;
+                }
+            } catch (err) {
+                console.log("Permissions API not supported, will ask when recording starts");
+            }
+        }
+        
+        // Try to check permissions on load
+        checkInitialPermissions();
+    </script>
+</body>
+</html>
